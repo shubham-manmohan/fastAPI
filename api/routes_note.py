@@ -168,3 +168,38 @@ def delete_bubble(bubble_id: int, db: Session = Depends(get_db), user_id: int = 
     db.delete(bubble)
     db.commit()
     return {"message": "NoteBubble deleted"}
+
+
+
+@router.get("/notes/{note_id}/bubbles/paginated", response_model=Dict[str, Any])
+def get_paginated_note_bubbles(
+    note_id: int,
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+):
+    offset = (page - 1) * limit
+
+    total_bubbles = (
+        db.query(func.count(NoteBubble.id))
+        .filter(NoteBubble.note_id == note_id)
+        .scalar()
+    )
+
+    bubbles = (
+        db.query(NoteBubble)
+        .filter(NoteBubble.note_id == note_id)
+        .order_by(NoteBubble.timestamp.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    has_more = (page * limit) < total_bubbles
+
+    return {
+        "bubbles": [NoteBubbleOut.model_validate(b) for b in bubbles],
+        "page": page,
+        "hasMore": has_more,
+        "total": total_bubbles,
+    }
