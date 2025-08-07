@@ -51,10 +51,17 @@ class NoteUpdate(BaseModel):
     actions: Optional[List[str]] = []
 
 
-class NoteOut(NoteBase):
+class NoteWithBubbleOut(NoteBase):
     id: int
     timestamp: datetime
     bubbles: List[NoteBubbleOut]=[]
+
+    class Config:
+        from_attributes = True
+
+class NoteOut(NoteBase):
+    id: int
+    timestamp: datetime
 
     class Config:
         from_attributes = True

@@ -1,7 +1,7 @@
 #  app/api/routes_note.py
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 from sqlalchemy import func
 from typing import List, Dict, Any
 from app.models.note import Note
@@ -82,7 +82,7 @@ def get_paginated_notes(
     notes = (
         db.query(Note)
         .filter(Note.user_id == user_id)
-        .order_by(Note.timestamp.desc())
+        .order_by(Note.timestamp.desc(), Note.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -101,7 +101,13 @@ def get_paginated_notes(
 
 @router.get("/notes/{note_id}", response_model=NoteOut)
 def get_note(note_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
-    note = db.query(Note).filter(Note.id == note_id, Note.user_id == user_id).first()
+    note = db.query(Note).options(load_only( Note.id,
+            Note.title,
+            Note.note_type,
+            Note.timestamp,
+            Note.preview,
+            Note.actions,
+            Note.user_id)).filter(Note.id == note_id, Note.user_id == user_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
@@ -189,7 +195,7 @@ def get_paginated_note_bubbles(
     bubbles = (
         db.query(NoteBubble)
         .filter(NoteBubble.note_id == note_id)
-        .order_by(NoteBubble.timestamp.desc())
+        .order_by(NoteBubble.timestamp.desc(), NoteBubble.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
