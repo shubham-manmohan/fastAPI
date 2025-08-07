@@ -1,8 +1,9 @@
 #  app/api/routes_note.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func
+from typing import List, Dict, Any
 from app.models.note import Note
 from app.models.note_bubble import NoteBubble
 from app.schemas.note import NoteCreate, NoteOut, NoteUpdate, NoteBubbleOut, NoteBubbleCreate, NoteBubbleUpdate
@@ -66,6 +67,36 @@ def create_note(note_data: NoteCreate, db: Session = Depends(get_db), user_id: i
 @router.get("/notes", response_model=List[NoteOut])
 def get_notes(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     return db.query(Note).filter(Note.user_id == user_id).all()
+
+
+@router.get("/notes/paginated", response_model=Dict[str, Any])
+def get_paginated_notes(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+):
+    offset = (page - 1) * limit
+
+    total_notes = db.query(func.count(Note.id)).filter(Note.user_id == user_id).scalar()
+    notes = (
+        db.query(Note)
+        .filter(Note.user_id == user_id)
+        .order_by(Note.timestamp.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    has_more = (page * limit) < total_notes
+
+    return {
+        "notes": [NoteOut.model_validate(note) for note in notes],
+        "page": page,
+        "hasMore": has_more,
+        "total": total_notes
+    }
+    
 
 
 @router.get("/notes/{note_id}", response_model=NoteOut)
